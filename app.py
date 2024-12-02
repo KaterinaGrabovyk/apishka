@@ -1,7 +1,4 @@
 from flask import Flask, jsonify, request
-from flask_jwt_extended import (
-    JWTManager, create_access_token, jwt_required, get_jwt
-)
 from config import Config
 from database import db, migrate
 import crud
@@ -11,60 +8,6 @@ app.config.from_object(Config)
 
 db.init_app(app)
 migrate.init_app(app, db)
-jwt = JWTManager(app)
-#tokens
-revoked_tokens = set()
-
-@jwt.token_in_blocklist_loader
-def check_if_token_revoked(jwt_header, jwt_payload):
-    return jwt_payload["jti"] in revoked_tokens
-
-@app.route('/register', methods=['POST'])
-def register():
-    try:
-        data = request.get_json()
-        username = data.get('username')
-        password = data.get('password')
-
-        if not username or not password:
-            return jsonify({"error": "Username and password are required"}), 400
-
-        user = crud.create_user(username, password)
-        if user is None:
-            return jsonify({"error": "User already exists"}), 400
-
-        return jsonify({"message": "User registered successfully"}), 201
-    except Exception:
-        return jsonify({"error": "An error occurred during registration"}), 500
-
-
-@app.route('/login', methods=['POST'])
-def login():
-    try:
-        data = request.get_json()
-        username = data.get('username')
-        password = data.get('password')
-
-        user = crud.get_user_by_username(username)
-        if user is None or not user.check_password(password):
-            return jsonify({"error": "Invalid username or password"}), 401
-
-        access_token = create_access_token(identity=user.id)
-        return jsonify({"access_token": access_token}), 200
-    except Exception:
-        return jsonify({"error": "An error occurred during login"}), 500
-
-
-@app.route('/logout', methods=['POST'])
-@jwt_required()
-def logout():
-    try:
-        jti = get_jwt()["jti"]
-        revoked_tokens.add(jti)
-        return jsonify({"message": "Token revoked"}), 200
-    except Exception:
-        return jsonify({"error": "An error occurred during logout"}), 500
-
 
 @app.route('/customers', methods=['POST'])
 @jwt_required()
